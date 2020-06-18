@@ -25,3 +25,8 @@ game.export('my_patched_rom.gba')
 
 ## TODO
 There's a lot that's not implemented yet. This is very much a work in progress
+
+
+## Documentation
+https://forums.warsworldnews.com/viewtopic.php?f=11&t=11130
+COs: https://forums.warsworldnews.com/viewtopic.php?t=5

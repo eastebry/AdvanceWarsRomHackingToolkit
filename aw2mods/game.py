@@ -40,6 +40,6 @@ class AdvanceWarsTwo(Rom):
         self.battlecopter = Unit(0x5d6190, self)
         self.tcopter = Unit(0x5d61e4, self)
         self.battleship = Unit(0x5d6240, self)
-        # self.cruisers = Unit(0x5d629C)
+        self.cruiser = Unit(0x5d629C, self)
         self.lander = Unit(0x5d62f8, self)
         self.sub = Unit(0x5d6354, self)
