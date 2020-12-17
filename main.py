@@ -21,7 +21,7 @@ def main():
     game.destroyer.price.write(1000)
     game.striker.price.write(2200)
 
-    game.mech.display()
+    game.battleship.display()
 
     #output = sys.argv[2]
     #game.export(output)

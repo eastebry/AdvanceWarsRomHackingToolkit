@@ -5,11 +5,12 @@ from aw2mods.framework import (
     UInt16,
     UInt8,
     Type,
-    RelativePointer,
+    OffsetPointer,
     Char,
-    String
+    DynamicString,
+    FixedLengthString,
 )
-STRING_TABLE_POSITION = 0x006dda3c - 2234 # TODO this number is wrong. It does not account for pointer math
+STRING_TABLE_POSITION = 0x006dda3c
 
 class Unit(Struct):
 
@@ -18,7 +19,7 @@ class Unit(Struct):
 
         # https://forums.warsworldnews.com/viewtopic.php?t=4
         # TODO this needs to be a fixed string
-        self.unit_name = RelativePointer(8, self, String, STRING_TABLE_POSITION)
+        self.unit_name = OffsetPointer(8, self, FixedLengthString.of_size(12), STRING_TABLE_POSITION, compenstating_offset=-2234)
         #self.unit_name = UInt16(8, self, comment="(Don't understand)")
         self.primary_weapon_index = UInt16(10, self, comment="(Don't understand)")
         self.secondary_weapon_index = UInt16(12, self, comment="(Don't understand)")
@@ -30,6 +31,9 @@ class Unit(Struct):
         self.max_range = UInt8(23, self)
         self.max_fuel = UInt8(24, self)
         self.is_direct = UInt8(25, self, comment="(1=direct, 2=indirect)")
+
+    def get_size(self):
+        return 25
 
     def __str__(self):
         return json.dumps({k: v.read() for k, v in self.members().items() if isinstance(v, Type)})

@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import hashlib
 import struct
 
@@ -24,11 +25,23 @@ class Rom(object):
         with open(output_path, 'wb+') as f:
             f.write(bytes(self.bites))
 
-class Struct(object):
+class Struct(ABC):
+
+    """
+    A struct is a contiguous chunk of memory at a partcular offset, with a predefined size.
+    A structs position is relative to its parents, which may themselves be structs
+    A struct has multiple members, which may be structs themselves
+    Structs allow you to read data, and access members
+    """
     
-    def __init__(self, position, parent):
-        self.parent = parent
+    def __init__(self, position, parent, comment=""):
         self.position = position
+        self.parent = parent
+        self.comment = comment
+
+    @abstractmethod
+    def get_size(self):
+        raise NotImplementedError()
 
     def get_offset(self):
         # type: () -> int
@@ -38,10 +51,6 @@ class Struct(object):
             return self.position
         
         return ValueError('Parent is neither patch nor rom')
-
-    @classmethod
-    def size(cls):
-        raise NotImplementedError()
 
     def get_rom(self):
         if isinstance(self.parent, Rom):
@@ -56,9 +65,7 @@ class Struct(object):
         return {k: v for k, v in vars(self).items() if k != 'parent' and isinstance(v, Struct)}
 
     def display(self):
-        last_member = max(self.members().values(), key=lambda x: x.position)
-        end_offset = last_member.position + last_member.size()
-        bites = self.get_rom().read(self.position, end_offset)
+        bites = self.get_rom().read(self.position, self.get_size())
         bites = list(map(lambda x: str(hex(x)[2:]).zfill(2), bites))
         final = []
         for i in range(len(bites)):
@@ -70,38 +77,44 @@ class Struct(object):
 
         print("-" * 39)
         print("Struct ({} members)".format(len(self.members())))
-        print("Position {}, Size {}".format(hex(self.position), end_offset))
+        print("Position {}, Size {}".format(hex(self.position), self.get_size()))
         print("-" * 39)
         print("0    2    4    6    8    a    c    e")
         print("".join(final))
         print("-" * 39)
 
         for k, v in self.members().items():
-            print("{}: ({} -> {}) {} {}".format(k, hex(v.position), hex(v.position + v.size() - 1), v.read(), v.comment))
+            print("{} ({} -> {}): {} {}".format(k, hex(v.position), hex(v.position + v.get_size() - 1), v.read(), v.comment))
         print("-" * 39)
 
+    def __str__(self):
+        return "{} (size: {})".format(self.__class__, self.get_size())
 
 
-class Type(Struct):
+class Type(Struct, ABC):
+    """
+    A Type is a specific data type that is readable and writeable
+    """
 
     def __init__(self, position, parent, endian='<', comment=""):
         super().__init__(position, parent)
         self.endian = endian
         self.comment = comment
 
-    @classmethod
-    def format_string_char(cls):
+    @abstractmethod
+    def format_string_char(self):
         raise NotImplementedError()
 
     def format_string(self):
         return "{}{}".format(self.endian, self.format_string_char())
+
     def __str__(self):
         return str(self.read())
 
     def read(self):
         return int(struct.unpack(
             self.format_string(),
-            self.get_rom().read(self.get_offset(), self.size())
+            self.get_rom().read(self.get_offset(), self.get_size())
         )[0])
     
     def write(self, value):
@@ -109,22 +122,18 @@ class Type(Struct):
         self.get_rom().write(self.get_offset(), value)
 
 class UInt8(Type):
-    @classmethod
-    def size(cls):
+    def get_size(self):
         return 1
-    
-    @classmethod
-    def format_string_char(cls):
+
+    def format_string_char(self):
         return "B"
 
 class UInt16(Type):
     
-    @classmethod
-    def size(cls):
+    def get_size(self):
         return 2
     
-    @classmethod
-    def format_string_char(cls):
+    def format_string_char(self):
         return "H"
 
 class Char(UInt8):
@@ -135,25 +144,18 @@ class Char(UInt8):
     def write(self, value):
         super().write(ord(value))
 
-
-class Pointer(Type):
-
-    @classmethod
-    def size(cls):
-        return 2
-
-    @classmethod
-    def format_string_char(cls):
-        return "H"
-
 class FixedLengthString(Type):
 
-    def __init__(self, position, parent, length, endian="<", comment=""):
+    def __init__(self, length, position, parent, endian="<", comment=""):
         super().__init__(position, parent, endian=endian, comment=comment)
         self.length = length
 
-    def size(self):
+    def get_size(self):
         return self.length
+
+    def format_string_char(self):
+        # TODO it doesn't make sense for this to inherit this method
+        raise NotImplementedError()
 
     def read(self):
         char = Char(0, self)
@@ -161,18 +163,23 @@ class FixedLengthString(Type):
         while char.read() != '\x00':
             result.append(char.read())
             char.position += 1
-        return ''.join(result)
+        return 'FixedLengthString: ({}) "{}"'.format(hex(self.position), ''.join(result))
+
+    @staticmethod
+    def of_size(size):
+        """Factory function to create a string of a certain size
+        returns a callable"""
+        def create_string_function(*args, **kwargs):
+            return FixedLengthString(size, *args, **kwargs)
+
+        return create_string_function
 
 class DynamicString(Type):
     """A string is a null terminated array of chars"""
 
-    # TODO this is not a class method. The inheritance is broken
-    def size(self):
-        # Find the distance to the first null byte
-        char = Char(0, self)
-        while char.read() != '\x00':
-            char.position += 1
-        return char.position + 1
+    @staticmethod
+    def size(cls):
+        raise RuntimeError("Cannot call size() on a dynamic sized string")
 
     def read(self):
         char = Char(0, self)
@@ -182,7 +189,7 @@ class DynamicString(Type):
             char.position += 1
         return ''.join(result)
 
-class RelativePointer(Type):
+class OffsetPointer(UInt16):
     """A Relative pointer is an offset from a predefined location"""
     def __init__(self,
                  position,
@@ -191,26 +198,21 @@ class RelativePointer(Type):
                  offset_from,
                  endian="<",
                  comment="",
+                 compenstating_offset=0 # This is used when I have no idea how the indexing works
                  ):
         self.pointer_type = pointer_type
         self.offset_from = offset_from
+        self.compensating_offset = compenstating_offset
         super().__init__(position, parent, endian, comment)
 
-    @classmethod
-    def size(cls):
-        return 2
-
-    @classmethod
-    def format_string_char(cls):
-        return "H"
 
     def write(self):
         raise NotImplementedError()
 
     def read(self):
         offset = super().read()
-        # TODO pointer math needs to happen here
-        value = self.pointer_type(self.offset_from + offset, self.get_rom())
-        return value.read()
+        value = self.pointer_type(0, self.get_rom())
+        value.position = self.offset_from + (offset+self.compensating_offset) * value.get_size()
+        return "OffsetPointer (val: {} ) -> {}".format(offset, value.read())
 
 
