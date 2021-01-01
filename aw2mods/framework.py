@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-import hashlib
+from colorama import init, Back, Style
 import struct
 
 class Rom(object):
@@ -26,13 +26,15 @@ class Rom(object):
             f.write(bytes(self.bites))
 
 class Struct(ABC):
-
     """
     A struct is a contiguous chunk of memory at a partcular offset, with a predefined size.
     A structs position is relative to its parents, which may themselves be structs
     A struct has multiple members, which may be structs themselves
     Structs allow you to read data, and access members
     """
+
+    # Used for colorizing display when printing hex values
+    COLOR_PALETTE = [Back.RED, Back.YELLOW, Back.GREEN, Back.BLUE, Back.WHITE, Back.CYAN, Back.MAGENTA]
     
     def __init__(self, position, parent, comment=""):
         self.position = position
@@ -64,28 +66,31 @@ class Struct(ABC):
     def members(self):
         return {k: v for k, v in vars(self).items() if k != 'parent' and isinstance(v, Struct)}
 
-    def display(self):
+    def display(self, color=True):
+        init() # colorama init
+        print("Raw Bytes:")
         bites = self.get_rom().read(self.position, self.get_size())
-        bites = list(map(lambda x: str(hex(x)[2:]).zfill(2), bites))
-        final = []
-        for i in range(len(bites)):
-            final.append(bites[i])
-            if i > 0 and i % 15 == 0:
-                final.append("\n")
-            elif i % 2 == 1:
-                final.append(" ")
+        members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0].position)
+        mi = 0
 
-        print("-" * 39)
-        print("Struct ({} members)".format(len(self.members())))
-        print("Position {}, Size {}".format(hex(self.position), self.get_size()))
-        print("-" * 39)
-        print("0    2    4    6    8    a    c    e")
-        print("".join(final))
-        print("-" * 39)
+        for i, b in enumerate(bites):
+            if color:
+                if i == members[mi][0].position:
+                    print(self.COLOR_PALETTE[mi % len(self.COLOR_PALETTE)], end='')
+            end = '\n' if (i % 15 == 0 and i != 0) else ' ' if i % 2 == 1 else ''
+            if color:
+                if i == members[mi][0].position + members[mi][0].get_size() - 1:
+                    end = Style.RESET_ALL + end
+                    mi += 1
+            print(hex(b)[2:].zfill(2), end=end)
 
-        for k, v in self.members().items():
-            print("{} ({} -> {}): {} {}".format(k, hex(v.position), hex(v.position + v.get_size() - 1), v.read(), v.comment))
-        print("-" * 39)
+        print(Style.RESET_ALL)
+        print("Members:")
+
+        for i, m in enumerate(members):
+            m, name = m
+            c = self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)]
+            print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m.position), hex(m.position + m.get_size() - 1), m.read(), m.comment))
 
     def __str__(self):
         return "{} (size: {})".format(self.__class__, self.get_size())
@@ -189,20 +194,20 @@ class DynamicString(Type):
             char.position += 1
         return ''.join(result)
 
-class OffsetPointer(UInt16):
-    """A Relative pointer is an offset from a predefined location"""
+class ArrayIndex(UInt16):
+    """An ArrayIndex is an index into an array with predefined location"""
     def __init__(self,
                  position,
                  parent,
                  pointer_type,
-                 offset_from,
+                 array_start,
                  endian="<",
                  comment="",
-                 compenstating_offset=0 # This is used when I have no idea how the indexing works
+                 index_offset=0 # This is used when I have no idea where the start of the array is
                  ):
         self.pointer_type = pointer_type
-        self.offset_from = offset_from
-        self.compensating_offset = compenstating_offset
+        self.array_start = array_start
+        self.index_offset = index_offset
         super().__init__(position, parent, endian, comment)
 
 
@@ -212,7 +217,7 @@ class OffsetPointer(UInt16):
     def read(self):
         offset = super().read()
         value = self.pointer_type(0, self.get_rom())
-        value.position = self.offset_from + (offset+self.compensating_offset) * value.get_size()
-        return "OffsetPointer (val: {} ) -> {}".format(offset, value.read())
+        value.position = self.array_start + (offset+self.index_offset) * value.get_size()
+        return "ArrayIndex(val: {} ) -> {}".format(offset, value.read())
 
 

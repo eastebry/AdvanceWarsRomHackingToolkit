@@ -21,10 +21,14 @@ def main():
     game.destroyer.price.write(1000)
     game.striker.price.write(2200)
 
-    game.battleship.display()
+    game.infantry.is_direct.write(2)
+    game.infantry.max_range.write(4)
+    game.infantry.min_range.write(2)
 
-    #output = sys.argv[2]
-    #game.export(output)
+    game.infantry.display()
+
+    output = sys.argv[2]
+    game.export(output)
 
     
 if __name__ == '__main__':
