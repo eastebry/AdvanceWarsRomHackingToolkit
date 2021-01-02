@@ -4,13 +4,28 @@ from aw2mods.framework import (
     Struct,
     UInt16,
     UInt8,
+    UInt32,
+    Pointer,
     Type,
     ArrayIndex,
-    Char,
-    DynamicString,
     FixedLengthString,
 )
 STRING_TABLE_POSITION = 0x006dda3c
+
+class DamageMatrix(Struct):
+    """DamageMatrix indicates how much damage this unit does against other Units"""
+
+    # TODO I'm not totally positive this order is correct. Something seems off
+    UNIT_ORDER=["infantry","mech","mdtank","glitchy1","tank","recons","apc","neotank","glitchy2","artillery","rockets","glitchy3",
+                "glitchy4","antiair","missiles","fighter","bombers","glitchy5","battlecopter","tcopter","battleship",
+                "cruiser","lander","sub","dived_sub"]
+    def __init__(self, position, parent):
+        super().__init__(position, parent)
+        for i, name in enumerate(self.UNIT_ORDER):
+            setattr(self, name, UInt8(i, self))
+
+    def read(self):
+        return "DamageMatrix"
 
 class Unit(Struct):
 
@@ -18,9 +33,7 @@ class Unit(Struct):
         super().__init__(position, parent)
 
         # https://forums.warsworldnews.com/viewtopic.php?t=4
-        # TODO this needs to be a fixed string
         self.unit_name = ArrayIndex(8, self, FixedLengthString.of_size(12), STRING_TABLE_POSITION, index_offset=-2234)
-        #self.unit_name = UInt16(8, self, comment="(Don't understand)")
         self.primary_weapon_index = UInt16(10, self, comment="(Don't understand)")
         self.secondary_weapon_index = UInt16(12, self, comment="(Don't understand)")
         self.price = UInt16(14, self, comment="(Value is one-tenth of the full unit price)")
@@ -31,9 +44,14 @@ class Unit(Struct):
         self.max_range = UInt8(23, self)
         self.max_fuel = UInt8(24, self)
         self.is_direct = UInt8(25, self, comment="This doesn't do what we think it does, but these numbers hold true (1=direct, 2=indirect)")
+        self.transport_pointer = Pointer(28, self, comment="(0x86e8000 = APC, 0x86e812c=Lander, 0x86e80b4=Tcopter)")
+        self.unit_class = UInt8(32, self, comment="Not sure what this changes")
+        self.movement_type = UInt8(33, self, comment="0=Infantry, 1=Mech, 2=tread, 3=tires, 4=air, 5=ship, 6=lander")
+        self.deploy_from = UInt8(34, self, comment="Where to deploy from. 4=Base, 16=Airport, 32=port")
+        self.ai_handling = UInt8(35, self)
 
-    def get_size(self):
-        return 26
+        self.primary_weapon_damage = DamageMatrix(39, self)
+        self.secondary_weapon_damage = DamageMatrix(65, self)
 
     def __str__(self):
         return json.dumps({k: v.read() for k, v in self.members().items() if isinstance(v, Type)})

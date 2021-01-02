@@ -37,49 +37,50 @@ class Struct(ABC):
     COLOR_PALETTE = [Back.RED, Back.YELLOW, Back.GREEN, Back.BLUE, Back.WHITE, Back.CYAN, Back.MAGENTA]
     
     def __init__(self, position, parent, comment=""):
-        self.position = position
-        self.parent = parent
+        self._position = position
+        self._parent = parent
         self.comment = comment
 
-    @abstractmethod
     def get_size(self):
-        raise NotImplementedError()
+        sorted_members = sorted(self.members().values(), key=lambda x: x._position)
+        return sorted_members[-1]._position + sorted_members[-1].get_size()
 
-    def get_offset(self):
+    def get_position(self):
         # type: () -> int
-        if isinstance(self.parent, Struct):
-            return self.position +  self.parent.get_offset()
-        elif isinstance(self.parent, Rom):
-            return self.position
+        if isinstance(self._parent, Struct):
+            return self._position +  self._parent.get_position()
+        elif isinstance(self._parent, Rom):
+            return self._position
         
         return ValueError('Parent is neither patch nor rom')
 
     def get_rom(self):
-        if isinstance(self.parent, Rom):
-            return self.parent
+        if isinstance(self._parent, Rom):
+            return self._parent
 
-        if isinstance(self.parent, Struct):
-            return self.parent.get_rom()
+        if isinstance(self._parent, Struct):
+            return self._parent.get_rom()
 
         return ValueError('Parent is neither patch nor rom')
 
     def members(self):
-        return {k: v for k, v in vars(self).items() if k != 'parent' and isinstance(v, Struct)}
+        return {k: v for k, v in vars(self).items() if k != '_parent' and isinstance(v, Struct)}
 
     def display(self, color=True):
         init() # colorama init
         print("Raw Bytes:")
-        bites = self.get_rom().read(self.position, self.get_size())
-        members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0].position)
+        bites = self.get_rom().read(self.get_position(), self.get_size())
+        members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0]._position)
         mi = 0
 
         for i, b in enumerate(bites):
-            if color:
-                if i == members[mi][0].position:
+            if color and mi < len(members):
+                if i == members[mi][0]._position:
                     print(self.COLOR_PALETTE[mi % len(self.COLOR_PALETTE)], end='')
-            end = '\n' if (i % 15 == 0 and i != 0) else ' ' if i % 2 == 1 else ''
-            if color:
-                if i == members[mi][0].position + members[mi][0].get_size() - 1:
+            # TODO this is not quite right
+            end = '\n' if (i % 16 == 0) else ' ' if i % 2 == 0 else ''
+            if color and mi < len(members):
+                if i == members[mi][0]._position + members[mi][0].get_size() - 1:
                     end = Style.RESET_ALL + end
                     mi += 1
             print(hex(b)[2:].zfill(2), end=end)
@@ -90,7 +91,7 @@ class Struct(ABC):
         for i, m in enumerate(members):
             m, name = m
             c = self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)]
-            print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m.position), hex(m.position + m.get_size() - 1), m.read(), m.comment))
+            print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m._position), hex(m._position + m.get_size() - 1), m.read(), m.comment))
 
     def __str__(self):
         return "{} (size: {})".format(self.__class__, self.get_size())
@@ -106,6 +107,20 @@ class Type(Struct, ABC):
         self.endian = endian
         self.comment = comment
 
+
+    def __str__(self):
+        return str(self.read())
+
+    @abstractmethod
+    def read(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def write(self, value):
+        raise NotImplementedError()
+
+class PackedType(Type, ABC):
+
     @abstractmethod
     def format_string_char(self):
         raise NotImplementedError()
@@ -113,33 +128,48 @@ class Type(Struct, ABC):
     def format_string(self):
         return "{}{}".format(self.endian, self.format_string_char())
 
-    def __str__(self):
-        return str(self.read())
-
     def read(self):
         return int(struct.unpack(
             self.format_string(),
-            self.get_rom().read(self.get_offset(), self.get_size())
+            self.get_rom().read(self.get_position(), self.get_size())
         )[0])
-    
+
     def write(self, value):
         value = struct.pack(self.format_string(), value)
-        self.get_rom().write(self.get_offset(), value)
+        self.get_rom().write(self.get_position(), value)
 
-class UInt8(Type):
+
+class UInt8(PackedType):
     def get_size(self):
         return 1
 
     def format_string_char(self):
         return "B"
 
-class UInt16(Type):
+class UInt16(PackedType):
     
     def get_size(self):
         return 2
     
     def format_string_char(self):
         return "H"
+
+class UInt32(PackedType):
+
+    def get_size(self):
+        return 4
+
+    def format_string_char(self):
+        return "I"
+
+class Pointer(UInt32):
+    # TODO not sure I am unpacking this properly
+
+    def get_size(self):
+        return 4
+
+    def read(self):
+        return hex(super().read())
 
 class Char(UInt8):
 
@@ -158,17 +188,16 @@ class FixedLengthString(Type):
     def get_size(self):
         return self.length
 
-    def format_string_char(self):
-        # TODO it doesn't make sense for this to inherit this method
-        raise NotImplementedError()
-
     def read(self):
         char = Char(0, self)
         result = []
         while char.read() != '\x00':
             result.append(char.read())
-            char.position += 1
+            char._position += 1
         return 'FixedLengthString: ({}) "{}"'.format(hex(self.position), ''.join(result))
+
+    def write(self, value):
+        pass
 
     @staticmethod
     def of_size(size):
@@ -191,8 +220,11 @@ class DynamicString(Type):
         result = []
         while char.read() != '\x00':
             result.append(char.read())
-            char.position += 1
+            char._position += 1
         return ''.join(result)
+
+    def write(self, value):
+        pass
 
 class ArrayIndex(UInt16):
     """An ArrayIndex is an index into an array with predefined location"""
