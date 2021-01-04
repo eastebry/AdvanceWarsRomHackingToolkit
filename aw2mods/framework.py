@@ -66,32 +66,36 @@ class Struct(ABC):
     def members(self):
         return {k: v for k, v in vars(self).items() if k != '_parent' and isinstance(v, Struct)}
 
-    def display(self, color=True):
-        init() # colorama init
-        print("Raw Bytes:")
-        bites = self.get_rom().read(self.get_position(), self.get_size())
-        members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0]._position)
-        mi = 0
+    def display(self, show_members=True, show_hex=True, color=True):
+        if color:
+            init() # colorama init
+        if show_hex:
+            print("Raw Bytes:")
+            bites = self.get_rom().read(self.get_position(), self.get_size())
+            members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0]._position)
+            mi = 0
 
-        for i, b in enumerate(bites):
-            if color and mi < len(members):
-                if i == members[mi][0]._position:
-                    print(self.COLOR_PALETTE[mi % len(self.COLOR_PALETTE)], end='')
-            # TODO this is not quite right
-            end = '\n' if (i % 16 == 0) else ' ' if i % 2 == 0 else ''
-            if color and mi < len(members):
-                if i == members[mi][0]._position + members[mi][0].get_size() - 1:
-                    end = Style.RESET_ALL + end
-                    mi += 1
-            print(hex(b)[2:].zfill(2), end=end)
+            for i, b in enumerate(bites):
+                if color and mi < len(members):
+                    if i == members[mi][0]._position:
+                        print(self.COLOR_PALETTE[mi % len(self.COLOR_PALETTE)], end='')
+                end = '\n' if ((i + 1) % 16 == 0) else ' ' if (i + 1) % 2 == 0 else ''
+                if color and mi < len(members):
+                    if i == members[mi][0]._position + members[mi][0].get_size() - 1:
+                        end = Style.RESET_ALL + end
+                        mi += 1
+                print(hex(b)[2:].zfill(2), end=end)
 
-        print(Style.RESET_ALL)
-        print("Members:")
+            if color:
+                print(Style.RESET_ALL)
 
-        for i, m in enumerate(members):
-            m, name = m
-            c = self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)]
-            print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m._position), hex(m._position + m.get_size() - 1), m.read(), m.comment))
+        if show_members:
+            print("Members:")
+
+            for i, m in enumerate(members):
+                m, name = m
+                c = self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)] if color else ''
+                print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m._position), hex(m._position + m.get_size() - 1), m.read(), m.comment))
 
     def __str__(self):
         return "{} (size: {})".format(self.__class__, self.get_size())

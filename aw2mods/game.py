@@ -33,25 +33,28 @@ class Unit(Struct):
         super().__init__(position, parent)
 
         # https://forums.warsworldnews.com/viewtopic.php?t=4
-        self.unit_name = ArrayIndex(8, self, FixedLengthString.of_size(12), STRING_TABLE_POSITION, index_offset=-2234)
-        self.primary_weapon_index = UInt16(10, self, comment="(Don't understand)")
-        self.secondary_weapon_index = UInt16(12, self, comment="(Don't understand)")
-        self.price = UInt16(14, self, comment="(Value is one-tenth of the full unit price)")
-        self.movement = UInt8(18, self)
-        self.max_ammo = UInt8(19, self)
-        self.vision = UInt8(20, self)
-        self.min_range = UInt8(22, self)
-        self.max_range = UInt8(23, self)
-        self.max_fuel = UInt8(24, self)
-        self.is_direct = UInt8(25, self, comment="This doesn't do what we think it does, but these numbers hold true (1=direct, 2=indirect)")
-        self.transport_pointer = Pointer(28, self, comment="(0x86e8000 = APC, 0x86e812c=Lander, 0x86e80b4=Tcopter)")
-        self.unit_class = UInt8(32, self, comment="Not sure what this changes")
-        self.movement_type = UInt8(33, self, comment="0=Infantry, 1=Mech, 2=tread, 3=tires, 4=air, 5=ship, 6=lander")
-        self.deploy_from = UInt8(34, self, comment="Where to deploy from. 4=Base, 16=Airport, 32=port")
-        self.ai_handling = UInt8(35, self)
+        self.unit_name = ArrayIndex(0, self, FixedLengthString.of_size(12), STRING_TABLE_POSITION, index_offset=-2234)
+        self.primary_weapon_index = UInt16(2, self, comment="(Don't understand)")
+        self.secondary_weapon_index = UInt16(4, self, comment="(Don't understand)")
+        self.price = UInt16(6, self, comment="(Value is one-tenth of the full unit price)")
+        self.movement = UInt8(10, self)
+        self.max_ammo = UInt8(11, self)
+        self.vision = UInt8(12, self)
+        self.min_range = UInt8(14, self)
+        self.max_range = UInt8(15, self)
+        self.max_fuel = UInt8(16, self)
+        self.is_direct = UInt8(17, self, comment="This doesn't do what we think it does, but these numbers hold true (1=direct, 2=indirect)")
+        self.transport_pointer = Pointer(20, self, comment="(0x86e8000 = APC, 0x86e812c=Lander, 0x86e80b4=Tcopter)")
+        self.unit_class = UInt8(24, self, comment="Not sure what this changes")
+        self.movement_type = UInt8(25, self, comment="0=Infantry, 1=Mech, 2=tread, 3=tires, 4=air, 5=ship, 6=lander")
+        self.deploy_from = UInt8(26, self, comment="Where to deploy from. 4=Base, 16=Airport, 32=port")
+        self.ai_handling = UInt8(27, self)
 
-        self.primary_weapon_damage = DamageMatrix(39, self)
-        self.secondary_weapon_damage = DamageMatrix(65, self)
+        self.primary_weapon_damage = DamageMatrix(31, self)
+        self.secondary_weapon_damage = DamageMatrix(57, self)
+
+        self.unknown_pointer_1 = Pointer(84, self)
+        self.unknown_pointer_2 = Pointer(88, self)
 
     def __str__(self):
         return json.dumps({k: v.read() for k, v in self.members().items() if isinstance(v, Type)})
@@ -62,11 +65,12 @@ class AdvanceWarsTwo(Rom):
         super().__init__(rom_file)
 
         # https://forums.warsworldnews.com/viewtopic.php?t=4
-        self.infantry = Unit(0x5D5B10, self)
+        #units = Struct(0x5D5B18, self)
+        self.infantry = Unit(0x5D5B18, self)
         self.mech = Unit(0x5d5b6c, self)
         self.mdtank = Unit(0x5d5bc8, self)
         self.tank = Unit(0x5d5c80, self)
-        self.recon = Unit(0x5d5cdc, self) 
+        self.recon = Unit(0x5d5cdc, self)
         self.apc = Unit(0x5d5d38, self)
         self.neotank = Unit(0x5d5d94, self)
         self.artillery = Unit(0x5d5e4c, self)
@@ -81,6 +85,8 @@ class AdvanceWarsTwo(Rom):
         self.cruiser = Unit(0x5d629C, self)
         self.lander = Unit(0x5d62f8, self)
         self.sub = Unit(0x5d6354, self)
+
+        #self.units = units
 
 class AdvanceWarsTwoExtended(AdvanceWarsTwo):
     """This is a class for the ROMhack "Advance wars 2 extended"""
