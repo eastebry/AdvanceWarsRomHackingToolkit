@@ -15,13 +15,9 @@ STRING_TABLE_POSITION = 0x006dda3c
 class DamageMatrix(Struct):
     """DamageMatrix indicates how much damage this unit does against other Units"""
 
-    # TODO I'm not totally positive this order is correct. Something seems off
-    UNIT_ORDER=["infantry","mech","mdtank","glitchy1","tank","recons","apc","neotank","glitchy2","artillery","rockets","glitchy3",
-                "glitchy4","antiair","missiles","fighter","bombers","glitchy5","battlecopter","tcopter","battleship",
-                "cruiser","lander","sub","dived_sub"]
     def __init__(self, position, parent):
         super().__init__(position, parent)
-        for i, name in enumerate(self.UNIT_ORDER):
+        for i, name in enumerate(AdvanceWarsTwo.UNIT_ORDER):
             setattr(self, name, UInt8(i, self))
 
     def read(self):
@@ -56,45 +52,37 @@ class Unit(Struct):
         self.unknown_pointer_1 = Pointer(84, self)
         self.unknown_pointer_2 = Pointer(88, self)
 
+    def read(self):
+        return "Unit"
+
     def __str__(self):
         return json.dumps({k: v.read() for k, v in self.members().items() if isinstance(v, Type)})
 
 
 class AdvanceWarsTwo(Rom):
+    UNIT_ORDER=["infantry","mech","mdtank","glitchy1","tank","recons","apc","neotank","glitchy2","artillery","rockets","glitchy3",
+                "glitchy4","antiair","missiles","fighter","bombers","glitchy5","battlecopter","tcopter","battleship",
+                "cruiser","lander","sub","dived_sub"]
+
     def __init__(self, rom_file):
         super().__init__(rom_file)
 
+        # Add all the units
+        # Units are stored in contiguous blocks starting at 0x5d5b18
+        # Unit description in this forum post:
         # https://forums.warsworldnews.com/viewtopic.php?t=4
-        #units = Struct(0x5D5B18, self)
-        self.infantry = Unit(0x5D5B18, self)
-        self.mech = Unit(0x5d5b6c, self)
-        self.mdtank = Unit(0x5d5bc8, self)
-        self.tank = Unit(0x5d5c80, self)
-        self.recon = Unit(0x5d5cdc, self)
-        self.apc = Unit(0x5d5d38, self)
-        self.neotank = Unit(0x5d5d94, self)
-        self.artillery = Unit(0x5d5e4c, self)
-        self.rockets = Unit(0x5d5ea8, self)
-        self.antiair = Unit(0x5d5fbc, self)
-        self.missiles = Unit(0x5d6018, self)
-        self.fighter = Unit(0x005d6074, self)
-        self.bomber = Unit(0x5d60d0, self)
-        self.battlecopter = Unit(0x5d6188, self)
-        self.tcopter = Unit(0x5d61e4, self)
-        self.battleship = Unit(0x5d6240, self)
-        self.cruiser = Unit(0x5d629C, self)
-        self.lander = Unit(0x5d62f8, self)
-        self.sub = Unit(0x5d6354, self)
-
-        #self.units = units
+        self.units = Struct(0x5D5B18, self)
+        for index, unit_name in enumerate(self.UNIT_ORDER[:-1]): # Enumerate all except dived subs
+            setattr(self.units, unit_name, Unit(index * 92, self.units)) # 92 = Size of Unit struct
 
 class AdvanceWarsTwoExtended(AdvanceWarsTwo):
     """This is a class for the ROMhack "Advance wars 2 extended"""
     def __init__(self, rom_file):
         super().__init__(rom_file)
-        self.heavytank = Unit(0x5d5d94, self)
-        self.antitank = Unit(0x5d5c24,self)
-        self.battlecruiser = Unit(0x5d612c ,self)
-        self.destroyer = Unit(0x5d5f60,self)
-        self.striker = Unit(0x5d5f04, self)
-        self.neotank = None
+        # TODO
+        #self.heavytank = Unit(0x5d5d94, self)
+        #self.antitank = Unit(0x5d5c24,self)
+        #self.battlecruiser = Unit(0x5d612c ,self)
+        #self.destroyer = Unit(0x5d5f60,self)
+        #self.striker = Unit(0x5d5f04, self)
+        #self.neotank = None
