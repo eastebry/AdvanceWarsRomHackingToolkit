@@ -7,25 +7,53 @@ def main():
         return
     rom = sys.argv[1]
     game = aw2mods.AdvanceWarsTwoExtended(rom)
-    game.lander.price.write(600)
-    game.battleship.price.write(2400)
-    game.battleship.max_range.write(5)
-    game.sub.price.write(1400)
-    game.sub.max_fuel.write(60)
-    game.mdtank.price.write(1400)
-    game.heavytank.movement.write(5)
-    game.heavytank.price.write(1800)
-    game.battlecruiser.price.write(2000)
-    game.antitank.price.write(900)
 
-    game.destroyer.price.write(1000)
-    game.striker.price.write(2200)
+    game.units.apc.price.write(400)
 
-    game.infantry.is_direct.write(2)
-    game.infantry.max_range.write(4)
-    game.infantry.min_range.write(2)
+    game.units.antitank.price.write(900)
 
-    game.infantry.display()
+    game.units.mdtank.price.write(1400)
+
+    game.units.heavyneotank.movement.write(5)
+    game.units.heavyneotank.price.write(1800)
+
+    game.units.lander.price.write(600)
+
+    game.units.battleship.price.write(2400)
+    game.units.battleship.max_range.write(5)
+
+    game.units.sub.price.write(1400)
+    game.units.sub.max_fuel.write(50)
+    game.units.sub.vision.write(4)
+    game.units.sub.primary_weapon_damage.destroyer.write(60)
+
+    game.units.destroyer.price.write(600)
+    game.units.destroyer.vision.write(3)
+    game.units.destroyer.primary_weapon_damage.sub.write(60)
+    game.units.destroyer.primary_weapon_damage.battleship.write(60)
+    game.units.destroyer.primary_weapon_damage.destroyer.write(60)
+    game.units.destroyer.primary_weapon_damage.battlecruiser.write(45)
+
+    game.units.cruiser.vision.write(4)
+
+    game.units.battlecruiser.price.write(2000)
+    game.units.battlecruiser.primary_weapon_damage.battleship.write(60)
+
+    game.units.striker.price.write(2000)
+
+    game.units.bomber.price.write(1800)
+    game.units.bomber.primary_weapon_damage.battlecopter.write(10)
+
+
+    # Experimenting with the transport pointer
+    #game.units.bomber.transport_pointer.write(0x86e80b4)
+    #game.units.lander.transport_pointer.dereference().infantry.write(False)
+    #game.units.tcopter.transport_pointer.dereference().sub.write(True)
+    #game.units.lander.transport_pointer.dereference().sub.write(True)
+    #game.units.apc.transport_pointer.dereference().sub.write(True)
+
+    print(game.units.apc.transport_pointer.dereference().get_size())
+
 
     output = sys.argv[2]
     game.export(output)

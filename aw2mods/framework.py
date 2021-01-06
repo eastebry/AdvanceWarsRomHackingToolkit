@@ -110,7 +110,7 @@ class Struct(ABC):
         return "{} (size: {})".format(self.__class__, self.get_size())
 
 
-class Type(Struct, ABC):
+class Type(Struct, ABC): # TODO Type should probably not inherit from struct
     """
     A Type is a specific data type that is readable and writeable
     """
@@ -119,7 +119,6 @@ class Type(Struct, ABC):
         super().__init__(position, parent)
         self.endian = endian
         self.comment = comment
-
 
     def __str__(self):
         return str(self.read())
@@ -159,6 +158,13 @@ class UInt8(PackedType):
     def format_string_char(self):
         return "B"
 
+class Bool(PackedType):
+    def get_size(self):
+        return 1
+
+    def format_string_char(self):
+        return "?"
+
 class UInt16(PackedType):
     
     def get_size(self):
@@ -175,15 +181,6 @@ class UInt32(PackedType):
     def format_string_char(self):
         return "I"
 
-class Pointer(UInt32):
-    # TODO not sure I am unpacking this properly
-
-    def get_size(self):
-        return 4
-
-    def read(self):
-        return hex(super().read())
-
 class Char(UInt8):
 
     def read(self):
@@ -191,6 +188,34 @@ class Char(UInt8):
 
     def write(self, value):
         super().write(ord(value))
+
+class Pointer(PackedType):
+
+    def __init__(self, type, position, parent, endian="<", comment=""):
+        super().__init__(position, parent, endian, comment)
+        self.type = type
+
+    def get_size(self):
+        return 4
+
+    def format_string_char(self):
+        return "I"
+
+    def read(self):
+        # Game Boy Advance pointers add 8000000 to the memory address
+        return super().read() - 0x8000000
+
+    def write(self, value):
+        # Game Boy Advance pointers add 8000000 to the memory address
+        super().write(value + 0x8000000)
+
+    def dereference(self):
+        if self.read() == 0:
+            raise Exception("Null Pointer Exception")
+        return self.type(self.read(), self.get_rom())
+
+    def __str__(self):
+        return "Pointer {} -> {}".format(self.read(), self.dereference().read())
 
 class FixedLengthString(Type):
 
@@ -211,6 +236,7 @@ class FixedLengthString(Type):
 
     def write(self, value):
         pass
+
 
     @staticmethod
     def of_size(size):
@@ -264,5 +290,3 @@ class ArrayIndex(UInt16):
         value = self.pointer_type(0, self.get_rom())
         value.position = self.array_start + (offset+self.index_offset) * value.get_size()
         return "ArrayIndex(val: {} ) -> {}".format(offset, value.read())
-
-
