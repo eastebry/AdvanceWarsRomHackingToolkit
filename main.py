@@ -14,8 +14,8 @@ def main():
 
     game.units.mdtank.price.write(1400)
 
-    game.units.heavyneotank.movement.write(5)
-    game.units.heavyneotank.price.write(1800)
+    game.units.heavytank.movement.write(5)
+    game.units.heavytank.price.write(1800)
 
     game.units.lander.price.write(600)
 
@@ -44,16 +44,10 @@ def main():
     game.units.bomber.price.write(1800)
     game.units.bomber.primary_weapon_damage.battlecopter.write(10)
 
-
-    # Experimenting with the transport pointer
-    #game.units.bomber.transport_pointer.write(0x86e80b4)
-    #game.units.lander.transport_pointer.dereference().infantry.write(False)
-    #game.units.tcopter.transport_pointer.dereference().sub.write(True)
-    #game.units.lander.transport_pointer.dereference().sub.write(True)
-    #game.units.apc.transport_pointer.dereference().sub.write(True)
-
-    print(game.units.apc.transport_pointer.dereference().get_size())
-
+    game.units.bomber.transport_pointer.write(0x86e80b4)
+    game.units.tcopter.transport_pointer.dereference().sub.write(True)
+    game.units.lander.transport_pointer.dereference().sub.write(True)
+    game.units.apc.transport_pointer.dereference().sub.write(True)
 
     output = sys.argv[2]
     game.export(output)
