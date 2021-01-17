@@ -2,10 +2,11 @@
 Project to build a better tool for modding the classic GBA game: Advance Wars 2
 
 ## Usage
-Clone this repository, install pipenv, then try out the examples:
+Clone this repository, install `pipenv`, then try out the examples:
 
 ```
-python -m aw2mods.examples.transport_units
+pipenv shell
+python -m aw2mods.examples.transport_units advancewars2.gba modified_advancewars2.gba
 
 ```
 The features of this library are explained in the aw2mods/examples/directory

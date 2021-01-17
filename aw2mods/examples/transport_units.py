@@ -13,7 +13,7 @@ def main(in_rom, out_rom):
     #
     # Let's start by loading the ROM:
 
-    game = aw2mods.AdvanceWarsTwoExtended(in_rom)
+    game = aw2mods.AdvanceWarsTwo(in_rom)
 
     # Now, let's make it so that APCs can carry two units, instead of 1
     #
@@ -71,11 +71,6 @@ def main(in_rom, out_rom):
 
     # Lastly, let's set the MdTank's transport pointer to point to our new TransportMatrix!
     game.units.mdtank.transport_pointer.write(location)
-
-    # As a bonus, let's change the MdTank's name to MamaTank
-    # This will only change the name on the base's menu, there are some other references to the name
-    # That I have not found yet
-    game.units.mdtank.name.dereference().write("MamaTank")
 
     # Finally, let's save the game
     game.export(out_rom)

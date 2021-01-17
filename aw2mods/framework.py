@@ -170,7 +170,9 @@ class Pointer(PackedType):
         return self.type(self.read(), self.get_rom())
 
     def __str__(self):
-        return "Pointer {} -> {}".format(self.read(), self.dereference().read())
+        if self.read() == self.NULL_PTR:
+            return "Pointer -> NULL"
+        return "Pointer {} -> {}".format(hex(self.read()), str(self.dereference()))
 
 
 class FixedLengthString(Type):
@@ -251,9 +253,6 @@ class ArrayIndex(UInt16):
         self.index_offset = index_offset
         super().__init__(position, parent, endian, comment)
 
-    def __str__(self):
-        return "Array Index {} -> {}".format(self.read(), self.dereference().read())
-
     def write(self):
         raise NotImplementedError()
 
@@ -286,10 +285,10 @@ class Struct(Data):
 
     def display(self, show_members=True, show_hex=True):
         init() # colorama init
+        members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0]._position)
         if show_hex:
             print("Raw Bytes:")
             bites = self.get_rom().read(self.get_position(), self.get_size())
-            members = sorted([(v, k) for k,v in self.members().items()], key=lambda x: x[0]._position)
             mi = 0
 
             color = ""
@@ -323,7 +322,7 @@ class Struct(Data):
             for i, m in enumerate(members):
                 m, name = m
                 c = self.COLOR_PALETTE[i % len(self.COLOR_PALETTE)]
-                print("{}  {} {} ({} -> {}): {} {}".format(c, Style.RESET_ALL ,name, hex(m._position), hex(m._position + m.get_size() - 1), m.read(), m.comment))
+                print("{}  {} {}: {} {}".format(c, Style.RESET_ALL ,name, str(m), "({})".format(m.comment) if m.comment else ""))
 
     def __str__(self):
         return "{} (size: {})".format(self.__class__, self.get_size())
