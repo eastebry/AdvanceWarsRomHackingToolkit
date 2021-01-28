@@ -57,6 +57,12 @@ class Data(ABC):
 
         return ValueError('Parent is neither Data nor Rom')
 
+    def fill(self, byte):
+        """Fill the entire struct with the same byte"""
+        assert len(byte) == 1
+        self.get_rom().write(self.get_position(), byte * self.get_size())
+
+
 
 class Type(Data):
     """
@@ -282,6 +288,7 @@ class Struct(Data):
 
     def members(self):
         return {k: v for k, v in vars(self).items() if k != '_parent' and isinstance(v, Data)}
+
 
     def display(self, show_members=True, show_hex=True):
         init() # colorama init

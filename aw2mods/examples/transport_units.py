@@ -52,9 +52,7 @@ def main(in_rom, out_rom):
     m = aw2mods.TransportMatrix(location, game)
 
     # Next, zero everything out of the TransportMatrix
-    # TODO there should be a helper method for this
-    for _, member in m.members().items():
-        member.write(0)
+    m.fill(b'\x00')
 
     # Set the capacity. MamaTanks will carry two regular tanks
     m.capacity.write(2)
