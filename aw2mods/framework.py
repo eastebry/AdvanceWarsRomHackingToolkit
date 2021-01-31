@@ -268,6 +268,10 @@ class ArrayIndex(UInt16):
         value._position = self.array_start + (offset+self.index_offset) * value.get_size()
         return value
 
+    def __str__(self):
+        return "ArrayIndex [{}] -> {}".format(self.read(), str(self.dereference()))
+
+
 class Struct(Data):
     """
     A struct is a contiguous chunk of memory at a partcular offset, with a predefined size.

@@ -23,6 +23,7 @@ class Unit(Struct):
         self.secondary_weapon_index = UInt16(4, self)
 
         self.price = UInt16(6, self, comment="Value is one-tenth of the full unit price")
+        self.uses_ammo = UInt16(8, self, comment="Must be \"A\" if the unit uses ammo")
         self.movement = UInt8(10, self, comment="The game will crash if this number is too big")
         self.max_ammo = UInt8(11, self)
         self.vision = UInt8(12, self)
@@ -39,11 +40,8 @@ class Unit(Struct):
         self.primary_weapon_damage = DamageMatrix(31, self)
         self.secondary_weapon_damage = DamageMatrix(57, self)
 
-        self.unknown_pointer_1 = Pointer(UInt8, 84, self)
-        self.unknown_pointer_2 = Pointer(UInt8, 88, self)
-
-    def read(self):
-        return "Unit"
+        self.repair_pointer = Pointer(UInt8, 84, self, comment="Untested")
+        self.fuel_consumption = Pointer(UInt8, 88, self, comment="Untested")
 
     def __str__(self):
         return json.dumps({k: v.read() for k, v in self.members().items() if isinstance(v, Type)})
@@ -76,9 +74,6 @@ class TransportMatrix(Struct):
             # 1 and 2 = probably rivers?
 
 
-    def read(self):
-        return "TransportMatrix"
-
 class DamageMatrix(Struct):
     """DamageMatrix indicates how much damage this unit does against other Units"""
 
@@ -87,9 +82,11 @@ class DamageMatrix(Struct):
         for i, name in enumerate(list(self.get_rom().unit_order()) + ["dived_sub"]):
             setattr(self, name, UInt8(i, self))
 
-    def read(self):
-        return "DamageMatrix"
-
+class InfoScreen(Struct):
+    """InfoScreens are a collection of pointers that point to the text displayed when viewing a unit"""
+    def __init__(self, position, parent):
+        super().__init__(position, parent)
+        self.unit_info = Pointer(UInt8, 0, self) # TODO is this not a pointer?
 
 
 class AdvanceWarsTwo(Rom):
@@ -104,6 +101,10 @@ class AdvanceWarsTwo(Rom):
         self.units = Struct(0x5D5B18, self)
         for index, unit_name in enumerate(self.unit_order()):
             setattr(self.units, unit_name, Unit(index * 92, self.units)) # 92 = Size of Unit struct
+
+        self.unit_info_screens = Struct(0x49E398, self) # TODO is this address wrong?
+        for index, unit_name in enumerate(self.unit_order()):
+            setattr(self.unit_info_screens, unit_name, InfoScreen(index * 32, self.unit_info_screens)) # 32 = Size of InfoScreen
 
     def unit_order(self):
         return ("infantry","mech","mdtank","empty1","tank","recon","apc","neotank","empty2","artillery","rockets","empty3",
